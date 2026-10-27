@@ -35,6 +35,8 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
           ))}
         </div>
         <p className="hint">{SYNC.find((s) => s.id === settings.sync)?.hint}</p>
+        <Toggle label="Keymap" hint="Show an on-screen keyboard under the lyrics that lights up as you type" checked={settings.keymap} onChange={(v) => update({ keymap: v })} />
+        <Toggle label="Hard mode" hint="A line only counts when it is typed exactly right: fix mistakes with backspace, and Enter can't skip" checked={settings.hardMode} onChange={(v) => update({ hardMode: v })} />
         <Toggle label="Reveal lyrics with the music" hint="Only the next line is previewed, faded; you can type a line once the song reaches it" checked={settings.revealLyrics} onChange={(v) => update({ revealLyrics: v })} />
         <Toggle label="Lowercase" hint="Ignore capital letters" checked={settings.lowercase} onChange={(v) => update({ lowercase: v })} />
         <Toggle label="Skip punctuation" hint="Only letters, numbers and apostrophes" checked={settings.stripPunct} onChange={(v) => update({ stripPunct: v })} />

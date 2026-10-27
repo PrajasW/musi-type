@@ -37,8 +37,8 @@ const TICK_MS = 200;
  * typist could be typing (the next lyric isn't out yet, or the song is paused by them).
  * `texts` must be stable for the life of the hook: remount (via `key`) for new lines.
  */
-export function useTyping(texts: string[], clockOn: MutableRefObject<boolean>) {
-  const reducer = useMemo(() => typingReducer(texts), [texts]);
+export function useTyping(texts: string[], clockOn: MutableRefObject<boolean>, hard = false) {
+  const reducer = useMemo(() => typingReducer(texts, { hard }), [texts, hard]);
   const [state, dispatch] = useReducer(reducer, texts, initialState);
   const [started, setStarted] = useState(false);
   const [activeMs, setActiveMs] = useState(0);

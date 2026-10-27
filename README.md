@@ -51,6 +51,8 @@ Monkeytype-style typing on top of a real music video. If a video has no lyrics, 
 - **Works when captions are bad or missing.** Plain lyrics are lined up against YouTube's captions, even the badly transcribed auto-generated ones. With no captions at all, an optional audio sync listens to the song with Whisper, on your CPU.
 - **The video waits for you.** The default mode stops the video at the end of every line until you have typed it. Prefer pressure? *Follow video* locks a line when the song moves on. Or go *Free*.
 - **Lyrics appear with the music.** Only the line being sung is typeable, with the next one faded as a preview, so you can't type the whole song ahead.
+- **Keymap.** An on-screen keyboard under the lyrics, like Monkeytype's keymap mode. It outlines the key you need next, flashes green or red as you press keys, and points at Backspace when there's a mistake to fix. Switch it on or off in Settings.
+- **Hard mode.** Turn it on in Settings and a line only counts when it is typed exactly right. A full line with a mistake stays open until you backspace and fix it, and Enter can't skip it.
 - **Monkeytype-style scoring.** A live WPM that keeps ticking, accuracy, raw WPM, consistency and a per-second graph.
 - **Four themes**: Sakura (default), Serika, Nord, Paper.
 - **Fixable.** Nudge the timing with offset buttons, paste better lyrics, re-fetch, or re-sync from the audio.
@@ -64,9 +66,13 @@ Monkeytype-style typing on top of a real music video. If a video has no lyrics, 
   </tr>
   <tr>
     <td width="50%"><b>Paste your own lyrics</b><br>They are lined up with the video's captions (or the audio) automatically.<br><br><img src="docs/images/paste.png" alt="Paste lyrics dialog"></td>
-    <td width="50%"><b>Settings</b><br>Typing mode, what you have to type, lyric sources and themes.<br><br><img src="docs/images/settings.png" alt="Settings dialog"></td>
+    <td width="50%"><b>Settings</b><br>Typing mode, hard mode, keymap, what you have to type, lyric sources and themes.<br><br><img src="docs/images/settings.png" alt="Settings dialog"></td>
   </tr>
 </table>
+
+**Keymap**: the on-screen keyboard lights up as you type, with the tips underneath.
+
+<img src="docs/images/keymap.png" alt="The on-screen keyboard under the lyrics" width="860">
 
 **Results**: WPM, accuracy, raw WPM, consistency, characters (correct / incorrect / missed) and a graph.
 
@@ -239,6 +245,30 @@ The other modes: *Follow video* locks a line when the song moves on (typing ahea
 <summary><b>How do lines appear with the music?</b></summary>
 
 A line becomes visible 0.2 s before it's sung, and nothing later can be typed. The next line is shown faded as a preview. If you finish a line early, your keys are ignored until the song reaches the next one. The first key you press starts the video, even before the first line has appeared. You can turn this off in Settings (*Reveal lyrics with the music*) to see everything.
+</details>
+
+<details>
+<summary><b>How does the keymap work?</b></summary>
+
+It is a US QWERTY keyboard drawn from `web/src/lib/keymap.ts`. For every character it knows the physical key and whether Shift is needed (capitals and symbols such as `!` or `?`).
+
+- The key you need **next** is outlined. If the line has a mistake, the outline moves to **Backspace**.
+- A key press flashes **green** when it was the expected character and **red** when it wasn't. Shifted characters light both Shift keys and the key.
+- It only reads your key presses; it doesn't change scoring. Characters with no key on this layout (accents, symbols like ♪) simply aren't highlighted.
+
+Turn it off in Settings (*Keymap*) if you want more room: the rest of the page, including the tips, stays where it was.
+</details>
+
+<details>
+<summary><b>What does hard mode do?</b></summary>
+
+Normally a line moves on as soon as you have typed all of its characters, mistakes or not (they cost accuracy, but you keep going). With **Hard mode** on, a line only counts when the whole sentence is exactly right:
+
+- When you reach the end of the line with a mistake in it, the line stays open and takes no more characters. The tip under the lyrics tells you to backspace and fix it.
+- Enter can't skip the rest of a line.
+- Combined with *Pause at line end*, the video keeps waiting until the line is correct.
+
+Toggling it restarts the current run, because the scoring rules changed.
 </details>
 
 <details>

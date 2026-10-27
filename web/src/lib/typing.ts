@@ -55,8 +55,13 @@ export function lineHasError(typed: string, target: string): boolean {
   return typed.length < target.length;
 }
 
-export function typingReducer(texts: string[]) {
+/**
+ * `hard`: a line only counts once it is typed exactly right. A full line with a mistake stays
+ * open (no more characters are accepted) until you backspace and fix it, and Enter can't skip it.
+ */
+export function typingReducer(texts: string[], opts: { hard?: boolean } = {}) {
   const n = texts.length;
+  const hard = opts.hard ?? false;
 
   const closeCur = (s: TypingState, how: LineStatus): TypingState => {
     const status = [...s.status];
@@ -80,7 +85,8 @@ export function typingReducer(texts: string[]) {
           typed,
           keys: { total: s.keys.total + 1, correct: s.keys.correct + (ok ? 1 : 0) },
         };
-        return typed[s.cur].length === target.length ? closeCur(next, 'done') : next;
+        if (typed[s.cur].length < target.length) return next;
+        return hard && typed[s.cur] !== target ? next : closeCur(next, 'done');
       }
       case 'backspace': {
         if (s.done) return s;
@@ -106,7 +112,7 @@ export function typingReducer(texts: string[]) {
         return { ...s, typed };
       }
       case 'enter':
-        return s.done || s.typed[s.cur].length === 0 ? s : closeCur(s, 'done');
+        return hard || s.done || s.typed[s.cur].length === 0 ? s : closeCur(s, 'done');
       case 'advanceTo': {
         const idx = Math.min(a.idx, n);
         if (s.done || idx <= s.cur) return s;

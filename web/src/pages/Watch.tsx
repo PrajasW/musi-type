@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type MutableRefObject } from 'react';
 import { useParams } from 'react-router-dom';
+import { Keyboard, type KeyFlash } from '../components/Keyboard';
 import { PasteLyricsModal } from '../components/PasteLyricsModal';
 import { PlayerPanel } from '../components/PlayerPanel';
 import { Results } from '../components/Results';
@@ -11,6 +12,7 @@ import { useTyping } from '../hooks/useTyping';
 import { alignLyrics, fetchSong } from '../lib/api';
 import { pushRecent } from '../lib/recent';
 import { readJson, useSettings, writeJson, type Settings } from '../lib/settings';
+import { charToKey } from '../lib/keymap';
 import { buildLines } from '../lib/typing';
 import { SOURCE_LABEL, type LyricLine, type SongData } from '../lib/types';
 
@@ -36,7 +38,9 @@ function Session({ title, lines, offset, settings, player, seekRef, onNeedLyrics
   const { time, controls } = player;
   const playing = player.state === PlayerState.PLAYING;
   const clockOn = useRef(false);
-  const { state, dispatch, stats, started, markStarted, restart } = useTyping(texts, clockOn);
+  const [flash, setFlash] = useState<KeyFlash | null>(null);
+  const flashN = useRef(0);
+  const { state, dispatch, stats, started, markStarted, restart } = useTyping(texts, clockOn, settings.hardMode);
 
   const endOf = (i: number) => lines[i].end + offset;
   const idxAt = (t: number) => {
@@ -111,12 +115,14 @@ function Session({ title, lines, offset, settings, player, seekRef, onNeedLyrics
     }
     if (e.key === 'Backspace') {
       e.preventDefault();
+      setFlash({ ids: ['backspace'], ok: true, n: ++flashN.current });
       dispatch({ type: e.ctrlKey || e.altKey ? 'deleteWord' : 'backspace' });
       return;
     }
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     if (e.key === 'Enter') {
       e.preventDefault();
+      setFlash({ ids: ['enter'], ok: true, n: ++flashN.current });
       dispatch({ type: 'enter' });
       return;
     }
@@ -127,6 +133,12 @@ function Session({ title, lines, offset, settings, player, seekRef, onNeedLyrics
     // the next line isn't out yet: wait for the music
     if (state.cur >= revealed) return;
     if (!started) markStarted();
+    // light up the key you pressed: green if it was the expected character, red if not
+    const pressed = charToKey(e.key);
+    if (pressed && state.typed[state.cur].length < texts[state.cur].length) {
+      const expected = texts[state.cur][state.typed[state.cur].length];
+      setFlash({ ids: pressed.shift ? [pressed.id, 'shift-l', 'shift-r'] : [pressed.id], ok: e.key === expected, n: ++flashN.current });
+    }
     dispatch({ type: 'char', ch: e.key });
   };
   useEffect(() => {
@@ -165,6 +177,17 @@ function Session({ title, lines, offset, settings, player, seekRef, onNeedLyrics
   }
 
   const cur = lines[Math.min(state.cur, n - 1)];
+  // hard mode: the line is full but wrong, so it won't advance until it is fixed
+  const lineNeedsFix = settings.hardMode && !state.done && state.typed[state.cur]?.length === texts[state.cur]?.length;
+  // the key to outline next: the next character, or backspace while the line has a mistake
+  const target = texts[Math.min(state.cur, n - 1)];
+  const typedNow = state.typed[Math.min(state.cur, n - 1)] ?? '';
+  const nextKey: string | null =
+    state.done || state.cur >= revealed
+      ? null
+      : [...typedNow].some((c, i) => c !== target[i])
+        ? 'backspace'
+        : (target[typedNow.length] ?? null);
   const deadline =
     sync === 'free' || state.done ? null : clamp((time - (cur.start + offset)) / Math.max(0.5, cur.end - cur.start), 0, 1);
 
@@ -172,13 +195,16 @@ function Session({ title, lines, offset, settings, player, seekRef, onNeedLyrics
     <>
       <StatsBar wpm={stats.wpm} accuracy={stats.accuracy} line={state.cur} total={n} />
       <TypingArea texts={texts} state={state} sungIdx={sync === 'free' ? -1 : sungIdx} visible={revealed} deadline={deadline} onLineClick={onLineClick} />
+      {settings.keymap && <Keyboard next={nextKey} flash={flash} />}
       <p className={`tip ${held ? 'waiting' : ''}`}>
         {held
           ? 'Waiting for you… finish the line and the song carries on'
-          : started && state.cur >= revealed
-            ? 'The next line comes in with the music…'
+          : lineNeedsFix
+            ? 'Hard mode: there is a mistake in this line. Backspace and fix it to continue'
             : started
-              ? 'esc pauses · enter skips the rest of a line · click a line to jump'
+              ? settings.hardMode
+                ? 'esc pauses · hard mode: every line has to be exactly right · click a line to jump'
+                : 'esc pauses · enter skips the rest of a line · click a line to jump'
               : 'Press any key to start the song'}
       </p>
     </>
@@ -239,7 +265,7 @@ export default function Watch() {
     writeJson(offsetKey, next);
   };
 
-  const sessionKey = `${id}|${song?.source}|${song?.lines.length}|${song?.lines[0]?.start}|${settings.lowercase}|${settings.stripPunct}|${tick}|${reloadKey}`;
+  const sessionKey = `${id}|${song?.source}|${song?.lines.length}|${song?.lines[0]?.start}|${settings.lowercase}|${settings.stripPunct}|${settings.hardMode}|${tick}|${reloadKey}`;
 
   return (
     <div className="page watch">

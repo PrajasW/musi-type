@@ -8,6 +8,8 @@ export interface Settings {
   lowercase: boolean;
   stripPunct: boolean;
   revealLyrics: boolean;
+  hardMode: boolean;
+  keymap: boolean;
   fontSize: number; // rem
   theme: Theme;
   sources: { ytManual: boolean; lrclib: boolean; genius: boolean };
@@ -21,6 +23,8 @@ export const DEFAULT_SETTINGS: Settings = {
   lowercase: true,
   stripPunct: true,
   revealLyrics: true,
+  hardMode: false,
+  keymap: true,
   fontSize: 1.6,
   theme: 'sakura',
   sources: { ytManual: true, lrclib: true, genius: true },

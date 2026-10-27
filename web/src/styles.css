@@ -189,3 +189,19 @@ main { flex: 1; width: 100%; max-width: 1100px; margin: 0 auto; padding: 0 32px 
   .results-top { grid-template-columns: 1fr 1fr; }
   .results-top .chart, .chart-empty { grid-column: 1 / -1; grid-row: auto; }
 }
+
+/* keymap mode: on-screen keyboard */
+.keymap { --ku: clamp(22px, 3vw, 36px); --gap: 5px; display: flex; flex-direction: column; align-items: center; gap: var(--gap); margin: 6px 0 2px; user-select: none; }
+.kb-row { display: flex; gap: var(--gap); justify-content: center; }
+.kb-key {
+  --w: 1;
+  width: calc(var(--w) * var(--ku) + (var(--w) - 1) * var(--gap)); height: var(--ku); flex: none;
+  display: grid; place-items: center; border-radius: 7px;
+  background: var(--bg-2); color: var(--sub);
+  font: 500 calc(var(--ku) * 0.33) 'Roboto Mono', monospace; text-transform: uppercase;
+  transition: background .18s ease, color .18s ease, box-shadow .18s ease, transform .1s ease;
+}
+.kb-key.next { box-shadow: inset 0 0 0 2px var(--main); color: var(--main); }
+.kb-key.ok { background: var(--main); color: var(--bg); transform: translateY(1px); transition-duration: .03s; }
+.kb-key.bad { background: var(--error); color: var(--bg); transform: translateY(1px); transition-duration: .03s; }
+@media (max-width: 640px) { .keymap { --gap: 3px; } }
