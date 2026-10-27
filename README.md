@@ -381,7 +381,51 @@ musi-type is a small Express API plus a static site. If you host it for other pe
 
 **Genius is per user.** There is no server-wide Genius key, and `GENIUS_TOKEN` is not read. Each person pastes their own token in Settings; it stays in their browser and travels only in the `x-genius-token` header of their own requests. The server uses it for that request, never writes it or the lyrics it fetched to the shared cache (they are kept in memory for an hour, per token), and never logs it. Responses are sent with `Cache-Control: no-store`.
 
-**Abuse protection built in:** per-IP rate limits (general, costly endpoints, and audio sync separately), a cap on concurrent yt-dlp processes, strict video id and token validation, size limits on bodies and lyrics (100 KB, 20k characters, 3k words), a refusal of unknown browser origins, security headers ([helmet](https://helmetjs.github.io)), short safe error messages (details only in the server log), only `genius.com` pages are ever fetched, a bounded disk cache, and server timeouts for slow clients. `npm test` covers all of it.
+**Abuse protection built in:** per-IP rate limits (general, costly endpoints, and audio sync separately), a shared cap across all clients on the costly endpoints (503 when exceeded), a cap on concurrent yt-dlp processes, strict video id and token validation, size limits on bodies and lyrics (100 KB, 20k characters, 3k words), a refusal of unknown browser origins and of HTTP methods the API never uses, security headers ([helmet](https://helmetjs.github.io)), short safe error messages (details only in the server log), only `genius.com` pages are ever fetched, a bounded disk cache, a cooldown on cache-busting refreshes, and server timeouts for slow clients. `npm test` covers all of it.
+
+## Security
+
+### How secrets are handled
+
+- **Keys only on the server, only as environment variables.** `YOUTUBE_API_KEY` and `YTDLP_COOKIES_FILE` are read by the API service and used for outgoing requests. They are never sent to the browser, never in the repo, never in a URL, and never returned in a response.
+- **Redaction.** Everything that goes to the logs or an error message passes through `server/src/redact.ts`, which blanks the value of any environment variable whose name contains KEY, TOKEN, SECRET, COOKIE, PASSWORD or AUTH, and anything shaped like a Bearer token, Google key, GitHub token or `?key=` parameter.
+- **Genius tokens** are per user (see above) and live in that user's browser only.
+- **A tripwire in the tests.** `server/src/secrets.test.ts` scans the whole repository for credential-shaped text, stray `.env` or cookie files, and secret names in the browser source. It runs in `npm test` and in CI, so a leaked key fails the build before it ships.
+
+### What protects the site
+
+- **Content Security Policy** in the production page: scripts only from the site and YouTube's player, connections only to the site's own origin, no plugins, no inline scripts, no framing by other origins through the headers below. A cross-site scripting bug therefore can't load attacker code or send data elsewhere.
+- **Headers set by the host** (see below): no framing (clickjacking), no MIME sniffing, a strict referrer policy, HSTS, and a locked-down permissions policy.
+- **React escapes everything it renders**, and the code never uses `innerHTML`, `eval` or similar. Lyrics, titles and pasted text are always plain text.
+- **Dependencies:** `npm audit` is clean, Dependabot opens update PRs weekly, and CI fails on known high-severity vulnerabilities in production dependencies.
+
+### Headers on Render's static site
+
+Render sets these in the dashboard, not in the repo: open the static site, then **Headers**, and add them for the path `/*`:
+
+| Header | Value |
+| --- | --- |
+| `X-Frame-Options` | `DENY` |
+| `Content-Security-Policy` | `frame-ancestors 'none'` |
+| `X-Content-Type-Options` | `nosniff` |
+| `Referrer-Policy` | `strict-origin-when-cross-origin` |
+| `Permissions-Policy` | `camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()` |
+| `Strict-Transport-Security` | `max-age=31536000; includeSubDomains` |
+
+(The rest of the Content Security Policy is already built into the page itself; `frame-ancestors` can only be set as a header.)
+
+### Checklist for the person running it
+
+These can't be done from code:
+
+1. **Restrict the YouTube Data API key** in Google Cloud Console: under *APIs & Services → Credentials*, limit it to the *YouTube Data API v3* only, and set a daily quota so a leak can't run up a bill.
+2. **Rotate any key that has ever been pasted into a chat, an issue, or a screenshot.** Treat it as public.
+3. **Turn on GitHub secret scanning and push protection** (repository *Settings → Code security*). They are free for public repositories and block a push that contains a key.
+4. **Keep keys in Render's environment settings**, never in `render.yaml`, the build command, or a committed file.
+5. **Turn on auto-deploy** for the services, so a security fix reaches the site as soon as it is merged.
+6. Optionally put the site behind Cloudflare's free plan for bot filtering and a WAF, on top of the limits here.
+
+Found a vulnerability? See [SECURITY.md](SECURITY.md).
 
 ## Project layout
 

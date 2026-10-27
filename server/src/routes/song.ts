@@ -1,6 +1,7 @@
 import { Router, type Request, type RequestHandler, type Response } from 'express';
 import type { Config } from '../config.js';
 import { BusyError } from '../limits.js';
+import { redact } from '../redact.js';
 import type { makeLimiters } from '../security.js';
 import { audioJob, readAudioWords, startAudioSync, whisperAvailable } from '../services/audio.js';
 import { isGeniusToken } from '../services/genius.js';
@@ -48,7 +49,7 @@ function fail(res: Response, e: unknown, cfg: Config) {
   if (e instanceof BadRequest) return void res.status(e.status).json({ error: e.message });
   if (e instanceof BusyError) return void res.status(503).json({ error: e.message });
   const message = (e as Error)?.message ?? 'unknown error';
-  console.error('[api]', message);
+  console.error('[api]', redact(message));
   const upstream = /^(yt-dlp failed|YouTube API failed|Video not found)/.test(message);
   res.status(upstream ? 502 : 500).json({
     error: upstream ? "Couldn't read this video right now. Try again in a bit." : 'Something went wrong on the server.',
@@ -71,6 +72,7 @@ export function songRouter(cfg: Config, limiters: ReturnType<typeof makeLimiters
 
   router.get(
     '/song',
+    limiters.heavyGlobal,
     limiters.heavy,
     handle(cfg, async (req, res) => {
       const v = videoIdOf(req.query.v);
@@ -80,6 +82,7 @@ export function songRouter(cfg: Config, limiters: ReturnType<typeof makeLimiters
 
   router.post(
     '/align',
+    limiters.heavyGlobal,
     limiters.heavy,
     handle(cfg, async (req, res) => {
       const videoId = videoIdOf(req.body?.videoId);

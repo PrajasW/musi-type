@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { promisify } from 'node:util';
 import { config } from '../config.js';
 import { Semaphore } from '../limits.js';
+import { redact } from '../redact.js';
 import { parseCaptions, type ParsedCaptions } from './captions.js';
 
 const exec = promisify(execFile);
@@ -59,7 +60,8 @@ async function run(args: string[], timeout = 90_000): Promise<string> {
   } catch (e) {
     if ((e as Error).name === 'BusyError') throw e;
     const err = e as { stderr?: string; message: string };
-    throw new Error(`yt-dlp failed: ${(err.stderr || err.message).trim().split('\n').pop()}`);
+    // an error can echo the command line: never let a cookie path or key reach logs or responses
+    throw new Error(redact(`yt-dlp failed: ${(err.stderr || err.message).trim().split('\n').pop()}`));
   }
 }
 

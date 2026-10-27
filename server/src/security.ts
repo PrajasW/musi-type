@@ -30,6 +30,13 @@ export function applySecurity(app: Express, cfg: Config) {
   app.set('trust proxy', cfg.trustProxy); // so rate limits see the real client IP behind a proxy
   app.use(helmet());
 
+  // nothing here needs PUT, DELETE, PATCH, TRACE...
+  app.use('/api', (req: Request, res: Response, next: NextFunction) => {
+    if (['GET', 'HEAD', 'POST', 'OPTIONS'].includes(req.method)) return next();
+    res.setHeader('Allow', 'GET, HEAD, POST, OPTIONS');
+    res.status(405).json({ error: 'Method not allowed.' });
+  });
+
   // browsers always send Origin on cross-origin requests: refuse the ones we don't know
   app.use('/api', (req: Request, res: Response, next: NextFunction) => {
     const origin = req.headers.origin;
@@ -56,6 +63,16 @@ export function makeLimiters(cfg: Config) {
   return {
     api: limiter(60_000, cfg.rateApiPerMin, 'requests'),
     heavy: limiter(60_000, cfg.rateHeavyPerMin, 'song lookups'),
+    // one shared bucket for everybody, answered with 503: the server protects itself when many clients pile on
+    heavyGlobal: rateLimit({
+      windowMs: 60_000,
+      limit: cfg.rateGlobalHeavyPerMin,
+      keyGenerator: () => 'everyone',
+      statusCode: 503,
+      standardHeaders: false,
+      legacyHeaders: false,
+      message: { error: 'The server is very busy right now. Try again in a minute.' },
+    }),
     audio: limiter(60 * 60_000, cfg.rateAudioPerHour, 'audio sync requests'),
   };
 }

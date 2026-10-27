@@ -17,6 +17,8 @@ export interface Config {
   /** requests per minute per IP: everything under /api, the costly endpoints, and audio-sync starts per hour */
   rateApiPerMin: number;
   rateHeavyPerMin: number;
+  /** costly requests per minute from ALL clients together: stops many IPs adding up to a flood */
+  rateGlobalHeavyPerMin: number;
   rateAudioPerHour: number;
   /** yt-dlp processes running at once; extra requests wait briefly, then get a 503 */
   maxConcurrentYtdlp: number;
@@ -37,6 +39,7 @@ export function loadConfig(e: NodeJS.ProcessEnv = env): Config {
     allowedOrigins: (e.ALLOWED_ORIGINS ?? '').split(',').map((s) => s.trim().replace(/\/$/, '')).filter(Boolean),
     rateApiPerMin: int(e.RATE_API_PER_MIN, 120),
     rateHeavyPerMin: int(e.RATE_HEAVY_PER_MIN, 20),
+    rateGlobalHeavyPerMin: int(e.RATE_GLOBAL_HEAVY_PER_MIN, 120),
     rateAudioPerHour: int(e.RATE_AUDIO_PER_HOUR, 3),
     maxConcurrentYtdlp: Math.max(1, int(e.MAX_CONCURRENT_YTDLP, 3)),
     audioSyncEnabled: flag(e.ENABLE_AUDIO_SYNC, !production),

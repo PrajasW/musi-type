@@ -56,11 +56,18 @@ async function loadRaw(videoId: string, refresh: boolean): Promise<RawSong> {
   return raw;
 }
 
+/** "Refresh" skips the cache and re-asks YouTube. It is allowed now and then, not as a way to hammer upstream. */
+const REFRESH_COOLDOWN_MS = 5 * 60_000;
+const fetchedAt = new Map<string, number>();
+
 async function fetchRaw(videoId: string, refresh: boolean): Promise<RawSong> {
-  if (!refresh) {
+  const mayRefresh = refresh && Date.now() - (fetchedAt.get(videoId) ?? 0) > REFRESH_COOLDOWN_MS;
+  if (!mayRefresh) {
     const hit = await readCache<RawSong>(rawKey(videoId));
     if (hit) return hit;
   }
+  if (fetchedAt.size >= 500) fetchedAt.delete(fetchedAt.keys().next().value!);
+  fetchedAt.set(videoId, Date.now());
   const meta = await getMetadata(videoId);
   const { artist, track } = guessTrack(meta);
   const [captions, lrclib] = await Promise.all([

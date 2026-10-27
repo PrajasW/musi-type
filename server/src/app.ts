@@ -1,5 +1,6 @@
 import express, { type ErrorRequestHandler } from 'express';
 import { config, type Config } from './config.js';
+import { redact } from './redact.js';
 import { songRouter } from './routes/song.js';
 import { applySecurity, makeLimiters } from './security.js';
 
@@ -8,7 +9,7 @@ const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
   const status = err?.status ?? err?.statusCode;
   if (err?.type === 'entity.too.large') return void res.status(413).json({ error: 'That request is too large.' });
   if (status && status >= 400 && status < 500) return void res.status(status).json({ error: 'Bad request.' });
-  console.error('[api]', err?.message ?? err);
+  console.error('[api]', redact(String(err?.message ?? err)));
   res.status(500).json({ error: 'Something went wrong on the server.' });
 };
 

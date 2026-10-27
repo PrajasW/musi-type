@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Typecheck
+        run: |
+          npm run typecheck -w server
+          npm run typecheck -w web
+      - name: Tests (includes the repository secret scan)
+        run: npm test
+      - name: Build the site
+        run: npm run build
+      - name: Fail on known high-severity vulnerabilities in production dependencies
+        run: npm audit --omit=dev --audit-level=high
