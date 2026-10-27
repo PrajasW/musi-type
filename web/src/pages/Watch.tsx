@@ -201,7 +201,7 @@ function Session({ title, lines, offset, settings, player, seekRef, onNeedLyrics
           ? 'Waiting for you… finish the line and the song carries on'
           : lineNeedsFix
             ? 'Hard mode: there is a mistake in this line. Backspace and fix it to continue'
-            : started
+            : started || playing
               ? settings.hardMode
                 ? 'esc pauses · hard mode: every line has to be exactly right · click a line to jump'
                 : 'esc pauses · enter skips the rest of a line · click a line to jump'

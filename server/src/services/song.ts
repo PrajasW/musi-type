@@ -3,9 +3,10 @@ import { alignLyrics, estimateOffset, type AlignResult } from '../align/align.js
 import type { LyricLine, SongData, SourceOptions, TimedWord } from '../types.js';
 import type { ParsedCaptions } from './captions.js';
 import { readAudioWords } from './audio.js';
-import { fetchGenius } from './genius.js';
+import { createHash } from 'node:crypto';
+import { fetchGenius, GENIUS_MESSAGES, type GeniusResult } from './genius.js';
 import { fetchLrclib, type LrclibResult } from './lrclib.js';
-import { guessTrack } from './titleClean.js';
+import { guessTrack, trackVariants } from './titleClean.js';
 import { getCaptions, getMetadata } from './ytdlp.js';
 
 /** Everything fetched from the network for a video; source options are applied on top. */
@@ -18,12 +19,35 @@ interface RawSong {
   manual?: ParsedCaptions;
   auto?: ParsedCaptions;
   lrclib: LrclibResult | null;
-  genius?: string | null;
   /** word timings recognised from the audio (optional, cached separately) */
   audio?: TimedWord[];
 }
 
 const rawKey = (id: string) => `raw-${id}`;
+
+/**
+ * Genius lyrics are fetched with the requesting user's own token, so they are never written to the
+ * shared disk cache (that would hand one user's lookup to everyone). They are kept in memory for a
+ * short while, per token, so retries and reloads by the same user don't hit Genius again.
+ */
+const GENIUS_TTL_MS = 60 * 60_000;
+const GENIUS_MAX_ENTRIES = 200;
+const geniusMemo = new Map<string, { at: number; result: GeniusResult }>();
+const tokenId = (token: string) => createHash('sha256').update(token).digest('hex').slice(0, 16);
+
+async function geniusFor(raw: RawSong, token: string | undefined): Promise<GeniusResult> {
+  if (!token) return { ok: false, reason: 'no-token' };
+  const key = `${tokenId(token)}:${raw.videoId}`;
+  const hit = geniusMemo.get(key);
+  if (hit && Date.now() - hit.at < GENIUS_TTL_MS) return hit.result;
+  const result = await fetchGenius(raw.artist, trackVariants(raw.track), token);
+  // remember successes and definite misses, but not transient failures
+  if (result.ok || result.reason === 'no-match') {
+    if (geniusMemo.size >= GENIUS_MAX_ENTRIES) geniusMemo.delete(geniusMemo.keys().next().value!);
+    geniusMemo.set(key, { at: Date.now(), result });
+  }
+  return result;
+}
 const DURATION_TOLERANCE = 5; // seconds between LRCLIB's studio length and the video's
 
 async function loadRaw(videoId: string, refresh: boolean): Promise<RawSong> {
@@ -122,7 +146,7 @@ function shift(lines: LyricLine[], by: number, duration: number): LyricLine[] {
   }));
 }
 
-function resolve(raw: RawSong, opts: SourceOptions): SongData {
+function resolve(raw: RawSong, opts: SourceOptions, genius?: GeniusResult): SongData {
   const sources = timingSources(raw, opts);
   const lr = opts.lrclib ? raw.lrclib : null;
 
@@ -144,18 +168,25 @@ function resolve(raw: RawSong, opts: SourceOptions): SongData {
   const lrText = lr ? lr.plain ?? lr.synced?.map((l) => l.text).join('\n') : undefined;
   if (lrText) return fromAligned(raw, bestAlign(lrText, raw, opts), 'lrclib-aligned');
 
-  if (opts.genius && raw.genius) return fromAligned(raw, bestAlign(raw.genius, raw, opts), 'genius-aligned');
+  if (genius?.ok) return fromAligned(raw, bestAlign(genius.text, raw, opts), 'genius-aligned');
 
   if (opts.ytManual && raw.manual?.cues.length) {
-    return build(raw, { lines: normalizeCues(raw.manual.cues), source: 'yt-manual', confidence: 1 });
+    return build(raw, {
+      lines: normalizeCues(raw.manual.cues),
+      source: 'yt-manual',
+      confidence: 1,
+      warnings: [
+        "No lyrics found online, so the video's own captions are used as the lyrics. Their wording and timing can be rough: paste the lyrics for a better match.",
+        ...(opts.genius && genius && !genius.ok ? [GENIUS_MESSAGES[genius.reason]] : []),
+      ],
+    });
   }
 
   const warnings = [
     'No lyrics found online for this video. Paste the lyrics and they will be lined up with the video.',
   ];
-  if (opts.genius && raw.genius === undefined && !opts.geniusToken && !process.env.GENIUS_TOKEN) {
-    warnings.push('Add a Genius API token in Settings to search Genius as well.');
-  }
+  // say why Genius didn't help, so a failure is visible instead of silently falling back to captions
+  if (opts.genius && genius && !genius.ok) warnings.push(GENIUS_MESSAGES[genius.reason]);
   if (raw.auto?.cues.length) {
     return build(raw, {
       lines: normalizeCues(raw.auto.cues),
@@ -171,16 +202,10 @@ function resolve(raw: RawSong, opts: SourceOptions): SongData {
 
 export async function getSong(videoId: string, opts: SourceOptions, refresh = false): Promise<SongData> {
   const raw = await loadRaw(videoId, refresh);
-
-  // Genius is only worth a (slow, scraped) request when nothing better exists
+  // Genius is only worth a (slow, scraped) request when nothing better exists, and only with the user's own token
   const lrUsable = opts.lrclib && raw.lrclib;
-  const token = opts.geniusToken || process.env.GENIUS_TOKEN;
-  if (opts.genius && token && !lrUsable && raw.genius === undefined) {
-    raw.genius = await fetchGenius(raw.artist, raw.track, token);
-    if (raw.genius) await writeCache(rawKey(videoId), raw);
-    else raw.genius = null; // not persisted: a later try (or a new token) may succeed
-  }
-  return resolve(raw, opts);
+  const genius = opts.genius && !lrUsable ? await geniusFor(raw, opts.geniusToken) : undefined;
+  return resolve(raw, opts, genius);
 }
 
 export async function alignPasted(videoId: string, lyrics: string, opts: SourceOptions): Promise<SongData> {
@@ -191,5 +216,10 @@ export async function alignPasted(videoId: string, lyrics: string, opts: SourceO
 /** Best known lyrics text for a video (used to prompt Whisper), or undefined. */
 export async function knownLyrics(videoId: string): Promise<string | undefined> {
   const raw = await loadRaw(videoId, false);
-  return raw.lrclib?.plain ?? raw.lrclib?.synced?.map((l) => l.text).join('\n') ?? raw.genius ?? undefined;
+  return raw.lrclib?.plain ?? raw.lrclib?.synced?.map((l) => l.text).join('\n') ?? undefined;
+}
+
+/** Length of the video in seconds (used to refuse audio sync on very long videos). */
+export async function songDuration(videoId: string): Promise<number> {
+  return (await loadRaw(videoId, false)).duration;
 }

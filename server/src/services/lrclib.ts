@@ -1,4 +1,5 @@
 import type { LyricLine } from '../types.js';
+import { trackVariants } from './titleClean.js';
 
 const BASE = 'https://lrclib.net/api';
 const UA = 'musi-type/0.1 (https://github.com/local/musi-type)';
@@ -69,7 +70,7 @@ function pick(records: LrcRecord[], duration: number): LrcRecord | null {
   return scored[0]?.r ?? null;
 }
 
-export async function fetchLrclib(artist: string, track: string, duration: number): Promise<LrclibResult | null> {
+async function lookup(artist: string, track: string, duration: number): Promise<LrclibResult | null> {
   const q = new URLSearchParams({ track_name: track, artist_name: artist });
   if (duration) q.set('duration', String(Math.round(duration)));
   const exact = await getJson<LrcRecord>(`${BASE}/get?${q}`);
@@ -82,4 +83,13 @@ export async function fetchLrclib(artist: string, track: string, duration: numbe
   if (!found?.length) found = await getJson<LrcRecord[]>(`${BASE}/search?${new URLSearchParams({ q: `${artist} ${track}` })}`);
   const best = found?.length ? pick(found, duration) : null;
   return best ? toResult(best) : null;
+}
+
+/** Try the title as written, then without live/session/version tags ("... in the Live Lounge" -> the studio song). */
+export async function fetchLrclib(artist: string, track: string, duration: number): Promise<LrclibResult | null> {
+  for (const variant of trackVariants(track)) {
+    const found = await lookup(artist, variant, duration);
+    if (found) return found;
+  }
+  return null;
 }

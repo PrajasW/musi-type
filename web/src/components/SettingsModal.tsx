@@ -66,7 +66,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
           <span>
             Genius API token
             <small>
-              Create a client at genius.com/api-clients, then generate a client access token. Stored only in this browser.
+              Your own token: create a client at genius.com/api-clients and generate a client access token. It stays in this browser and is sent only with your requests; the server never stores it, shares it, or has a key of its own.
             </small>
           </span>
           {/* committed on blur: every change refetches the song */}

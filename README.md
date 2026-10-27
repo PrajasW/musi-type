@@ -339,9 +339,37 @@ Add a service next to `server/src/services/lrclib.ts` that returns plain or sync
 | --- | --- | --- |
 | `PORT` | `8787` | API server port. The dev site proxies `/api` to it. |
 | `YTDLP_BIN` | `yt-dlp`, else `python -m yt_dlp` | Path to yt-dlp if it isn't on `PATH`. |
-| `GENIUS_TOKEN` | none | Genius API token (or paste it in Settings). |
 | `PYTHON_BIN` | `python` / `python3` | Python used for audio sync. |
 | `WHISPER_MODEL` | `base` | `tiny`, `base`, `small`, … Bigger is more accurate and slower. |
+
+## Deploying
+
+musi-type is a small Express API plus a static site. If you host it for other people, set these. Everything defaults to safe values when `NODE_ENV=production`.
+
+| Variable | Default | What it does |
+| --- | --- | --- |
+| `NODE_ENV` | | Set to `production`. Turns audio sync off by default, trusts one proxy hop, and stops allowing localhost origins. |
+| `ALLOWED_ORIGINS` | none | Comma-separated sites allowed to call the API from another origin (for example `https://musi-type.example`). Empty means same-origin only. |
+| `TRUST_PROXY` | `1` in production | How many reverse-proxy hops to trust for the client IP. Rate limits are per IP, so this has to match your host (1 on Render and similar). |
+| `RATE_API_PER_MIN` | `120` | Requests per minute per IP across the whole API. |
+| `RATE_HEAVY_PER_MIN` | `20` | Song lookups and lyric alignments per minute per IP (they start yt-dlp and call other sites). |
+| `RATE_AUDIO_PER_HOUR` | `3` | Audio sync starts per hour per IP. |
+| `MAX_CONCURRENT_YTDLP` | `3` | yt-dlp processes at once. Extra requests wait up to 20 s, then get a 503. |
+| `ENABLE_AUDIO_SYNC` | off in production | Whisper audio sync is CPU heavy. Turn it on only if the server can take it. |
+| `MAX_AUDIO_SECONDS` | `900` | Longest video audio sync accepts. |
+| `MAX_LYRICS_CHARS`, `MAX_LYRICS_WORDS` | `20000`, `3000` | Size limits on pasted lyrics. |
+| `MAX_CACHE_FILES` | `3000` | The disk cache drops its oldest files past this. |
+| `YOUTUBE_API_KEY` | none | Read titles and durations from the official YouTube Data API instead of yt-dlp. Useful when the host is bot-blocked. It has no caption information, so captions are still looked up through yt-dlp. |
+| `YTDLP_COOKIES_FILE` | none | Path to a cookies file for yt-dlp. Datacenter IPs are often asked to prove they are not bots; cookies from a logged-in browser help. |
+
+**On Render (a static site that rewrites `/api/*` to a separate web service)** the browser's requests reach the API through the static site's proxy, so two settings matter on the *API* service:
+
+- `ALLOWED_ORIGINS=https://your-static-site.onrender.com`, **once you set `NODE_ENV=production`**. The API sees the proxy's host, not your site's, so in production the origin guard refuses POST requests (pasting lyrics, audio sync) from any origin not on the list. Outside production every origin is allowed. The server logs `[security] refused a request from origin …` once per origin when it refuses one.
+- `TRUST_PROXY=2` (static-site proxy, then Render's router) if every visitor ends up sharing one rate-limit bucket. Check by loading `/api/health` from two networks and comparing the `RateLimit` header's `remaining` count: if the two counts drop together, raise `TRUST_PROXY` by one.
+
+**Genius is per user.** There is no server-wide Genius key, and `GENIUS_TOKEN` is not read. Each person pastes their own token in Settings; it stays in their browser and travels only in the `x-genius-token` header of their own requests. The server uses it for that request, never writes it or the lyrics it fetched to the shared cache (they are kept in memory for an hour, per token), and never logs it. Responses are sent with `Cache-Control: no-store`.
+
+**Abuse protection built in:** per-IP rate limits (general, costly endpoints, and audio sync separately), a cap on concurrent yt-dlp processes, strict video id and token validation, size limits on bodies and lyrics (100 KB, 20k characters, 3k words), a refusal of unknown browser origins, security headers ([helmet](https://helmetjs.github.io)), short safe error messages (details only in the server log), only `genius.com` pages are ever fetched, a bounded disk cache, and server timeouts for slow clients. `npm test` covers all of it.
 
 ## Project layout
 

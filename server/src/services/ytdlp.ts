@@ -3,9 +3,14 @@ import { mkdtemp, readdir, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
+import { config } from '../config.js';
+import { Semaphore } from '../limits.js';
 import { parseCaptions, type ParsedCaptions } from './captions.js';
 
 const exec = promisify(execFile);
+
+/** Only a few yt-dlp processes at once: each one is a Python process and a request to YouTube. */
+const slots = new Semaphore(config.maxConcurrentYtdlp);
 
 interface CaptionFormat { ext: string; url: string }
 export interface VideoMeta {
@@ -40,14 +45,19 @@ function resolveCmd() {
 
 async function run(args: string[], timeout = 90_000): Promise<string> {
   const { file, pre } = await resolveCmd();
+  // cookies from a logged-in browser help on cloud hosts that YouTube treats as bots (see README, Deploying)
+  const cookies = process.env.YTDLP_COOKIES_FILE ? ['--cookies', process.env.YTDLP_COOKIES_FILE] : [];
   try {
-    const { stdout } = await exec(file, [...pre, '--no-warnings', '--no-playlist', ...args], {
-      maxBuffer: 64 * 1024 * 1024,
-      timeout,
-      env: { ...process.env, PYTHONWARNINGS: 'ignore', PYTHONIOENCODING: 'utf-8' },
-    });
+    const { stdout } = await slots.run(() =>
+      exec(file, [...pre, '--no-warnings', '--no-playlist', ...cookies, ...args], {
+        maxBuffer: 64 * 1024 * 1024,
+        timeout,
+        env: { ...process.env, PYTHONWARNINGS: 'ignore', PYTHONIOENCODING: 'utf-8' },
+      }),
+    );
     return stdout;
   } catch (e) {
+    if ((e as Error).name === 'BusyError') throw e;
     const err = e as { stderr?: string; message: string };
     throw new Error(`yt-dlp failed: ${(err.stderr || err.message).trim().split('\n').pop()}`);
   }
@@ -57,7 +67,7 @@ async function run(args: string[], timeout = 90_000): Promise<string> {
 async function getMetadataFromApi(videoId: string, key: string): Promise<VideoMeta> {
   const url = `https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails&id=${encodeURIComponent(videoId)}`;
   const res = await fetch(url, { headers: { 'X-goog-api-key': key } });
-  if (!res.ok) throw new Error(`YouTube API failed: ${res.status} ${await res.text()}`);
+  if (!res.ok) throw new Error(`YouTube API failed: ${res.status}`);
   const data = (await res.json()) as { items?: any[] };
   const item = data.items?.[0];
   if (!item) throw new Error('Video not found');
@@ -131,8 +141,12 @@ async function downloadTrack(videoId: string, lang: string, auto: boolean): Prom
 }
 
 export async function getCaptions(videoId: string, meta: VideoMeta): Promise<CaptionTracks> {
-  const manualLang = pickManualLang(meta);
-  const autoLang = pickAutoLang(meta);
+  // Metadata from the YouTube Data API says nothing about which captions exist. Don't conclude there are
+  // none (that made lyrics fall back to a rough even spread): try the video's language and let yt-dlp say.
+  const unknown = meta.subtitles === undefined && meta.automatic_captions === undefined;
+  const guess = meta.language?.split('-')[0] || 'en';
+  const manualLang = unknown ? `${guess}.*,${guess}` : pickManualLang(meta);
+  const autoLang = unknown ? `${guess}.*,${guess}` : pickAutoLang(meta);
   const [manual, auto] = await Promise.all([
     manualLang ? downloadTrack(videoId, manualLang, false).catch(() => undefined) : undefined,
     autoLang ? downloadTrack(videoId, autoLang, true).catch(() => undefined) : undefined,
