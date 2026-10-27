@@ -138,6 +138,8 @@ main { flex: 1; width: 100%; max-width: 1100px; margin: 0 auto; padding: 0 32px 
 .line .c { color: var(--text); }
 .line .x { color: var(--error); }
 .line .m { color: var(--error-dim); }
+.line .e { color: var(--error); opacity: .7; }
+.line .end { display: inline-block; width: 0; }
 .line.upcoming { cursor: default; opacity: .7; }
 .line.locked { opacity: .75; }
 .line.closed:not(.current) { opacity: .7; }

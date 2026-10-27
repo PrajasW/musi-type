@@ -13,7 +13,7 @@ import { alignLyrics, fetchSong } from '../lib/api';
 import { pushRecent } from '../lib/recent';
 import { readJson, useSettings, writeJson, type Settings } from '../lib/settings';
 import { charToKey } from '../lib/keymap';
-import { buildLines } from '../lib/typing';
+import { buildLines, nextExpected, position } from '../lib/typing';
 import { SOURCE_LABEL, type LyricLine, type SongData } from '../lib/types';
 
 type Player = ReturnType<typeof useYouTubePlayer>;
@@ -135,8 +135,10 @@ function Session({ title, lines, offset, settings, player, seekRef, onNeedLyrics
     if (!started) markStarted();
     // light up the key you pressed: green if it was the expected character, red if not
     const pressed = charToKey(e.key);
-    if (pressed && state.typed[state.cur].length < texts[state.cur].length) {
-      const expected = texts[state.cur][state.typed[state.cur].length];
+    const { cur: typedWord } = position(state.typed[state.cur]);
+    // a space at the start of a word does nothing, so it doesn't flash either
+    if (pressed && !(e.key === ' ' && typedWord === '')) {
+      const expected = nextExpected(texts[state.cur], state.typed[state.cur]);
       setFlash({ ids: pressed.shift ? [pressed.id, 'shift-l', 'shift-r'] : [pressed.id], ok: e.key === expected, n: ++flashN.current });
     }
     dispatch({ type: 'char', ch: e.key });
@@ -177,17 +179,11 @@ function Session({ title, lines, offset, settings, player, seekRef, onNeedLyrics
   }
 
   const cur = lines[Math.min(state.cur, n - 1)];
-  // hard mode: the line is full but wrong, so it won't advance until it is fixed
-  const lineNeedsFix = settings.hardMode && !state.done && state.typed[state.cur]?.length === texts[state.cur]?.length;
-  // the key to outline next: the next character, or backspace while the line has a mistake
-  const target = texts[Math.min(state.cur, n - 1)];
-  const typedNow = state.typed[Math.min(state.cur, n - 1)] ?? '';
-  const nextKey: string | null =
-    state.done || state.cur >= revealed
-      ? null
-      : [...typedNow].some((c, i) => c !== target[i])
-        ? 'backspace'
-        : (target[typedNow.length] ?? null);
+  // the key to outline next: the next character (a space between words), or backspace while the word has a mistake
+  const lineIdx = Math.min(state.cur, n - 1);
+  const nextKey = state.done || state.cur >= revealed ? null : nextExpected(texts[lineIdx], state.typed[lineIdx] ?? '');
+  // hard mode: a wrong word can't be left until it is fixed
+  const lineNeedsFix = settings.hardMode && nextKey === 'backspace';
   const deadline =
     sync === 'free' || state.done ? null : clamp((time - (cur.start + offset)) / Math.max(0.5, cur.end - cur.start), 0, 1);
 
@@ -200,7 +196,7 @@ function Session({ title, lines, offset, settings, player, seekRef, onNeedLyrics
         {held
           ? 'Waiting for you… finish the line and the song carries on'
           : lineNeedsFix
-            ? 'Hard mode: there is a mistake in this line. Backspace and fix it to continue'
+            ? 'Hard mode: there is a mistake in this word. Backspace and fix it to continue'
             : started || playing
               ? settings.hardMode
                 ? 'esc pauses · hard mode: every line has to be exactly right · click a line to jump'

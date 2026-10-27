@@ -260,12 +260,24 @@ Turn it off in Settings (*Keymap*) if you want more room: the rest of the page, 
 </details>
 
 <details>
+<summary><b>What happens when I type extra letters, or press space early?</b></summary>
+
+Typing works on words, the way Monkeytype does it:
+
+- A **space** moves to the next word, even if the current one is unfinished (the missing letters count as missed). A space at the start of a word does nothing.
+- **Extra letters** typed past the end of a word are kept and shown after the word in red. Typing `thsaaa` for `the` shows the word with its wrong letter, then the extras. You can type up to 20 extras per word, and they count as incorrect characters.
+- **Backspace** removes extras one at a time. It can go back into the previous word only if that word was wrong; a word you got right stays put.
+- The **last word** of a line finishes the line as soon as it is exactly right, or when you press space (or Enter) on it.
+- The keymap outlines **Backspace** while the current word has a mistake or extras.
+</details>
+
+<details>
 <summary><b>What does hard mode do?</b></summary>
 
-Normally a line moves on as soon as you have typed all of its characters, mistakes or not (they cost accuracy, but you keep going). With **Hard mode** on, a line only counts when the whole sentence is exactly right:
+Normally you can move past a wrong word (mistakes cost accuracy, but you keep going). With **Hard mode** on, a line only counts when the whole sentence is exactly right:
 
-- When you reach the end of the line with a mistake in it, the line stays open and takes no more characters. The tip under the lyrics tells you to backspace and fix it.
-- Enter can't skip the rest of a line.
+- You can't leave a word until it is typed right: space does nothing while the word has a mistake or extras. The tip under the lyrics tells you to backspace and fix it.
+- The last word has to be exactly right to finish the line, and Enter can't skip a line.
 - Combined with *Pause at line end*, the video keeps waiting until the line is correct.
 
 Toggling it restarts the current run, because the scoring rules changed.

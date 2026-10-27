@@ -1,5 +1,5 @@
 import { memo, useLayoutEffect, useRef } from 'react';
-import type { TypingState } from '../lib/typing';
+import { layoutLine, type TypingState } from '../lib/typing';
 
 interface LineProps {
   index: number;
@@ -19,15 +19,11 @@ const Line = memo(function Line({ index, text, typed, status, isCurrent, isSung,
     .join(' ');
   return (
     <div ref={(el) => register(index, el)} className={cls} onClick={() => onClick(index)}>
-      {[...text].map((ch, i) => {
-        const t = typed[i];
-        const state = t === undefined ? (closed ? 'm' : 'u') : t === ch ? 'c' : 'x';
-        return (
-          <span key={i} className={state}>
-            {ch}
-          </span>
-        );
-      })}
+      {layoutLine(text, typed, closed).cells.map((cell, i) => (
+        <span key={i} className={cell.state}>
+          {cell.ch || '​'}
+        </span>
+      ))}
     </div>
   );
 });
@@ -66,7 +62,9 @@ export function TypingArea({ texts, state, sungIdx, visible, deadline, onLineCli
     list.style.transform = `translateY(${-(anchor?.offsetTop ?? 0)}px)`;
 
     const line = lineEls.current[state.cur];
-    const ch = line?.children[curTyped.length] as HTMLElement | undefined;
+    // the caret sits before the next letter; extra letters push it right, past the word's end
+    const caretAt = layoutLine(texts[state.cur] ?? '', curTyped, false).caret;
+    const ch = line?.children[caretAt] as HTMLElement | undefined;
     if (!line || !ch || state.done) {
       caret.style.opacity = '0';
       return;
