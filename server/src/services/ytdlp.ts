@@ -53,7 +53,29 @@ async function run(args: string[], timeout = 90_000): Promise<string> {
   }
 }
 
+/** Official YouTube Data API v3. Used when YOUTUBE_API_KEY is set, so cloud hosts (Render etc.) aren't bot-blocked. */
+async function getMetadataFromApi(videoId: string, key: string): Promise<VideoMeta> {
+  const url = `https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails&id=${encodeURIComponent(videoId)}`;
+  const res = await fetch(url, { headers: { 'X-goog-api-key': key } });
+  if (!res.ok) throw new Error(`YouTube API failed: ${res.status} ${await res.text()}`);
+  const data = (await res.json()) as { items?: any[] };
+  const item = data.items?.[0];
+  if (!item) throw new Error('Video not found');
+  const m = /^P(?:(\d+)D)?T?(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/.exec(item.contentDetails?.duration ?? '') ?? [];
+  const [d, h, min, s] = [m[1], m[2], m[3], m[4]].map((v) => Number(v ?? 0));
+  return {
+    id: videoId,
+    title: item.snippet?.title ?? '',
+    duration: d * 86400 + h * 3600 + min * 60 + s,
+    channel: item.snippet?.channelTitle,
+    uploader: item.snippet?.channelTitle,
+    language: item.snippet?.defaultAudioLanguage ?? item.snippet?.defaultLanguage,
+  };
+}
+
 export async function getMetadata(videoId: string): Promise<VideoMeta> {
+  const key = process.env.YOUTUBE_API_KEY;
+  if (key) return getMetadataFromApi(videoId, key);
   const out = await run(['-J', '--skip-download', `https://www.youtube.com/watch?v=${videoId}`]);
   return JSON.parse(out) as VideoMeta;
 }
