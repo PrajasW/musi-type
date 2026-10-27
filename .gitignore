@@ -1,0 +1,8 @@
+node_modules/
+dist/
+server/cache/
+*.log
+.env
+
+# the full demo video has two commercial songs in it, so it stays local
+docs/demo.mp4
