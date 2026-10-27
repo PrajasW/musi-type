@@ -25,8 +25,10 @@ Monkeytype-style typing on top of a real music video. If a video has no lyrics, 
 ## Demo
 
 <p align="center">
-  <img src="docs/images/demo-preview.gif" alt="musi-type demo: title card, then pasting a YouTube link" width="720">
+  <video src="docs/demo.mp4" controls muted width="860"></video>
 </p>
+
+<p align="center"><a href="docs/demo.mp4">▶ Watch the 2½ minute demo</a> (turn the sound on)</p>
 
 ## Contents
 
@@ -70,9 +72,9 @@ Monkeytype-style typing on top of a real music video. If a video has no lyrics, 
 
 <img src="docs/images/results.png" alt="Results screen" width="860">
 
-**A video with no captions at all** (*Disenchanted*): the timing comes from the audio instead.
+**Captions wrong or missing?** *Sync with audio* listens to the song and times the lyrics from the sound, on your own computer. Once it has run, the button reads "Audio synced ✓".
 
-<img src="docs/images/no-captions.png" alt="Typing along to a video with no captions" width="860">
+<img src="docs/images/audio-synced.png" alt="The header after audio sync has run" width="860">
 
 **Themes**
 
@@ -356,4 +358,4 @@ musi-type/
 - Typing feel and scoring: [Monkeytype](https://monkeytype.com).
 - Lyrics: [LRCLIB](https://lrclib.net) and [Genius](https://genius.com).
 - Captions and audio: [yt-dlp](https://github.com/yt-dlp/yt-dlp). Speech recognition: [faster-whisper](https://github.com/SYSTRAN/faster-whisper).
-- Screenshots use public music videos for illustration only.
+- The demo video and screenshots use "Amazing Grace - Soprano a cappella" by Laura | The CelloSinger ([YouTube](https://www.youtube.com/watch?v=vlDhQG9cMEg), licensed [CC BY](https://creativecommons.org/licenses/by/3.0/)). The hymn's words are in the public domain.
