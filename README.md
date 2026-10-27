@@ -8,10 +8,15 @@ Monkeytype-style typing on top of a real music video. If a video has no lyrics, 
 
 *Inspired by [VocaType](https://video.vocatype.app/en/).*
 
+### 🌸 [Try it live: musi-type-web.onrender.com](https://musi-type-web.onrender.com/)
+
+<sub>It runs on a free host that sleeps when idle, so the first load can take up to a minute.</sub>
+
+![License](https://img.shields.io/badge/license-AGPL--3.0-blue)
 ![Node](https://img.shields.io/badge/node-%E2%89%A520-5fa04e?logo=node.js&logoColor=white)
 ![React](https://img.shields.io/badge/react-18-61dafb?logo=react&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/typescript-5-3178c6?logo=typescript&logoColor=white)
-![Tests](https://img.shields.io/badge/tests-36%20passing-d95f82)
+![Tests](https://img.shields.io/badge/tests-109%20passing-d95f82)
 ![Audio sync](https://img.shields.io/badge/audio%20sync-faster--whisper%20(optional)-f09ab0)
 
 <br>
@@ -22,17 +27,8 @@ Monkeytype-style typing on top of a real music video. If a video has no lyrics, 
 
 ---
 
-## Demo
-
-<p align="center">
-  <video src="docs/demo.mp4" controls muted width="860"></video>
-</p>
-
-<p align="center"><a href="docs/demo.mp4">▶ Watch the 2½ minute demo</a> (turn the sound on)</p>
-
 ## Contents
 
-- [Demo](#demo)
 - [Features](#features)
 - [A tour](#a-tour)
 - [Quick start](#quick-start)
@@ -43,6 +39,7 @@ Monkeytype-style typing on top of a real music video. If a video has no lyrics, 
 - [API](#api)
 - [Troubleshooting](#troubleshooting)
 - [Credits](#credits)
+- [License](#license)
 
 ## Features
 
@@ -472,4 +469,10 @@ musi-type/
 - Typing feel and scoring: [Monkeytype](https://monkeytype.com).
 - Lyrics: [LRCLIB](https://lrclib.net) and [Genius](https://genius.com).
 - Captions and audio: [yt-dlp](https://github.com/yt-dlp/yt-dlp). Speech recognition: [faster-whisper](https://github.com/SYSTRAN/faster-whisper).
-- The demo video and screenshots use "Amazing Grace - Soprano a cappella" by Laura | The CelloSinger ([YouTube](https://www.youtube.com/watch?v=vlDhQG9cMEg), licensed [CC BY](https://creativecommons.org/licenses/by/3.0/)). The hymn's words are in the public domain.
+- The screenshots use "Amazing Grace - Soprano a cappella" by Laura | The CelloSinger ([YouTube](https://www.youtube.com/watch?v=vlDhQG9cMEg), licensed [CC BY](https://creativecommons.org/licenses/by/3.0/)). The hymn's words are in the public domain.
+
+## License
+
+Copyright (C) 2026 Prajas Wadekar
+
+musi-type is free software under the [GNU Affero General Public License v3.0](LICENSE). You may use, study, change and share it. If you run a modified version as a website for other people, the AGPL requires you to offer them the source code of your version under the same license.
